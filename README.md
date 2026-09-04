@@ -108,6 +108,7 @@ See `CONTRIBUTING.md` for maintainer operations including publishing releases.
 
 ## Requirements
 
-- Ubuntu/Debian with systemd
+- Linux with glibc 2.38+
+- systemd
 - `/opt/nginx` writable by the build user
-- `sudo` for dependency installation (set `SKIP_APT=1` to skip)
+- `sudo` for dependency installation (`SKIP_APT=1` to skip)
