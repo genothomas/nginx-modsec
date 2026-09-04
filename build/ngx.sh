@@ -355,6 +355,10 @@ stage_files() {
         "$SRC/crs-src/rules/." \
         "$modsec_dir/rules/"
 
+    # Normalize CRS permissions for deterministic runtime packaging.
+    find "$modsec_dir/rules" -type d -exec chmod 0755 {} +
+    find "$modsec_dir/rules" -type f -exec chmod 0644 {} +
+
     # NGINX dynamic modules.
     for module in \
         ngx_http_modsecurity_module.so \
