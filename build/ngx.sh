@@ -303,6 +303,12 @@ stage_files() {
 
     log "Staging runtime files"
 
+    # NGINX's make install creates these via mkdir with the build user's
+    # umask; normalize so the staged tree does not inherit 0775.
+    chmod 0755 \
+        "$STAGE/usr/sbin/nginx" \
+        "$STAGE/usr/lib/nginx"
+
     install -d -m 0755 \
         "$STAGE/usr/lib/nginx/modules" \
         "$STAGE$MODSECURITY_RUNTIME_PREFIX" \
