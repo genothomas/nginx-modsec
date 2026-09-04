@@ -1,0 +1,104 @@
+name: Update dependencies
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      libmodsecurity:
+        description: "libModSecurity version (3.x.x). Empty = auto-resolve."
+        required: false
+        type: string
+      modsecurity_nginx:
+        description: "ModSecurity-nginx connector version (1.x.x). Empty = auto-resolve."
+        required: false
+        type: string
+      pcre2:
+        description: "PCRE2 version (10.x). Empty = auto-resolve."
+        required: false
+        type: string
+      geoip2:
+        description: "GeoIP2 module version (3.x). Empty = auto-resolve."
+        required: false
+        type: string
+      headers_more:
+        description: "headers-more version (0.xx). Empty = auto-resolve."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
+
+jobs:
+  update:
+    name: Resolve + PR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MODSECURITY_VERSION_OVERRIDE: ${{ inputs.libmodsecurity }}
+      MODSECURITY_NGINX_VERSION_OVERRIDE: ${{ inputs.modsecurity_nginx }}
+      PCRE2_VERSION_OVERRIDE: ${{ inputs.pcre2 }}
+      GEOIP2_MODULE_VERSION_OVERRIDE: ${{ inputs.geoip2 }}
+      HEADERS_MORE_VERSION_OVERRIDE: ${{ inputs.headers_more }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install updater dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl jq python3
+
+      - name: Snapshot current versions
+        run: git show HEAD:build/versions.env > "$RUNNER_TEMP/versions-before.env"
+
+      - name: Resolve latest upstream releases
+        run: ./build/update-versions.sh
+
+      - name: Check for version changes
+        id: changes
+        run: |
+          if git diff --quiet -- build/versions.env; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build PR body
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          body="$RUNNER_TEMP/pr_body.md"
+
+          {
+            echo "## Upstream version updates"
+            echo
+            echo "Tracking: latest NGINX stable/mainline, OpenSSL 3.5.x, OWASP CRS 4.25.x."
+            echo "Overrides available for: libModSecurity, ModSecurity-nginx, PCRE2, GeoIP2, headers-more."
+            echo
+            echo '```'
+            ./scripts/diff-versions.sh "$RUNNER_TEMP/versions-before.env" build/versions.env
+            echo '```'
+            echo
+            echo "Review the diff before merging. Components with no change are omitted."
+          } > "$body"
+
+          cat "$body"
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          branch: automation/update-upstream-versions
+          delete-branch: true
+          commit-message: "chore: update upstream versions"
+          title: "chore: update upstream versions"
+          body-path: ${{ runner.temp }}/pr_body.md
+          labels: |
+            dependencies
+            upstream

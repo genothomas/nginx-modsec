@@ -1,0 +1,20 @@
+# Copy to /etc/nginx/modsec/override.conf. Survives upgrades.
+
+# Example: raise paranoia level above the shipped PL1 baseline.
+# SecAction \
+#   "id:1000001,\
+#    phase:1,\
+#    nolog,\
+#    pass,\
+#    setvar:tx.paranoia_level=2"
+
+# Example: raise the inbound anomaly score threshold before blocking.
+# SecAction \
+#   "id:1000002,\
+#    phase:1,\
+#    nolog,\
+#    pass,\
+#    setvar:tx.inbound_anomaly_score_pl1=10"
+
+# Example: disable a noisy rule by ID (rule-id comes from the audit log).
+# SecRuleRemoveById 942100
