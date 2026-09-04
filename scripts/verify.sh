@@ -72,7 +72,7 @@ modsec_dir="$tmpdir/etc/nginx/modsec"
 [[ -d "$modsec_dir/rules" ]] || die "missing CRS rules dir"
 [[ -s "$modsec_dir/main.conf" ]] || die "missing ModSecurity main.conf"
 [[ -s "$modsec_dir/modsecurity.conf" ]] || die "missing ModSecurity modsecurity.conf"
-[[ -s "$modsec_dir/crs-setup.conf.example" ]] || die "missing crs-setup.conf.example"
+[[ -s "$modsec_dir/crs-setup.conf" ]] || die "missing crs-setup.conf"
 [[ -n "$(find "$modsec_dir/rules" -maxdepth 1 -name '*.conf' -print -quit)" ]] ||
     die "CRS rules dir is empty"
 [[ -s "$tmpdir/usr/local/modsecurity/unicode.mapping" ]] ||
@@ -87,7 +87,7 @@ mkdir -p "$smoke/etc/nginx/modsec/rules" \
          "$smoke/tmp/fastcgi" "$smoke/tmp/uwsgi" "$smoke/tmp/scgi"
 
 cp -a "$modsec_dir/rules/." "$smoke/etc/nginx/modsec/rules/"
-cp -a "$modsec_dir/crs-setup.conf.example" "$smoke/etc/nginx/modsec/"
+cp -a "$modsec_dir/crs-setup.conf" "$smoke/etc/nginx/modsec/"
 
 cat > "$smoke/etc/nginx/modsec/modsecurity.conf" <<EOF
 SecRuleEngine DetectionOnly
@@ -99,7 +99,7 @@ EOF
 
 cat > "$smoke/etc/nginx/modsec/main.conf" <<EOF
 Include $smoke/etc/nginx/modsec/modsecurity.conf
-Include $smoke/etc/nginx/modsec/crs-setup.conf.example
+Include $smoke/etc/nginx/modsec/crs-setup.conf
 Include $smoke/etc/nginx/modsec/rules/*.conf
 EOF
 

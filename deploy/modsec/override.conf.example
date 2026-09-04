@@ -1,5 +1,3 @@
-# Copy to /etc/nginx/modsec/override.conf. Survives upgrades.
-
 # Example: raise paranoia level above the shipped PL1 baseline.
 # SecAction \
 #   "id:1000001,\

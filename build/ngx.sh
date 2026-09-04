@@ -295,41 +295,78 @@ build_nginx() {
 }
 
 stage_files() {
-    local lib_dir="$STAGE$MODSECURITY_RUNTIME_PREFIX/lib" module
+    local lib_dir="$STAGE$MODSECURITY_RUNTIME_PREFIX/lib"
     local modsec_dir="$STAGE/etc/nginx/modsec"
+    local modsecurity_so
+    local unicode_src
+    local module
 
     log "Staging runtime files"
 
-    mkdir -p "$lib_dir" "$STAGE/usr/lib/nginx/modules"
-    cp -a "$MODSECURITY_PREFIX/lib/." "$lib_dir/"
+    install -d -m 0755 \
+        "$STAGE/usr/lib/nginx/modules" \
+        "$STAGE$MODSECURITY_RUNTIME_PREFIX" \
+        "$lib_dir" \
+        "$modsec_dir/rules"
 
-    # Libtool archives and pkgconfig are link-time only, no runtime value.
-    find "$lib_dir" -maxdepth 1 -type f -name '*.la' -delete
-    rm -rf "$lib_dir/pkgconfig"
+    # libModSecurity runtime library: versioned .so + SONAME + dev symlink.
+    # Discover the versioned filename rather than assume a naming scheme.
+    modsecurity_so="$(find "$MODSECURITY_PREFIX/lib" -maxdepth 1 \
+        -name 'libmodsecurity.so.*.*.*' -print -quit)"
+    [[ -n "$modsecurity_so" ]] ||
+        die "versioned libmodsecurity.so not found in $MODSECURITY_PREFIX/lib"
 
-    [[ -f "$lib_dir/libmodsecurity.so.3" ]] || die "libmodsecurity.so.3 missing"
+    install -m 0755 "$modsecurity_so" "$lib_dir/$(basename "$modsecurity_so")"
+
+    ln -sfn "$(basename "$modsecurity_so")" "$lib_dir/libmodsecurity.so.3"
+    ln -sfn "libmodsecurity.so.3" "$lib_dir/libmodsecurity.so"
 
     # ModSecurity's install doesn't ship unicode.mapping; it lives in the
     # source tree. Probe $SRC (maxdepth 2 covers root + subdirs).
-    local unicode_src
-    unicode_src="$(find "$SRC/ModSecurity" -maxdepth 2 -name unicode.mapping -print -quit)"
+    unicode_src="$(find "$SRC/ModSecurity" -maxdepth 2 \
+        -name unicode.mapping -print -quit)"
     [[ -n "$unicode_src" ]] ||
         die "ModSecurity unicode.mapping missing (build_modsecurity failed?)"
-    cp -a "$unicode_src" "$STAGE$MODSECURITY_RUNTIME_PREFIX/unicode.mapping"
 
-    # /etc/nginx/modsec/ + CRS rules.
-    mkdir -p "$modsec_dir/rules"
-    install -m 0644 "$ROOT/deploy/modsec/modsecurity.conf" "$modsec_dir/modsecurity.conf"
-    install -m 0644 "$ROOT/deploy/modsec/main.conf" "$modsec_dir/main.conf"
-    install -m 0644 "$ROOT/deploy/modsec/override.conf.example" "$modsec_dir/override.conf.example"
-    install -m 0644 "$SRC/crs-src/crs-setup.conf.example" "$modsec_dir/crs-setup.conf.example"
-    cp -a "$SRC/crs-src/rules/." "$modsec_dir/rules/"
+    install -m 0644 \
+        "$unicode_src" \
+        "$STAGE$MODSECURITY_RUNTIME_PREFIX/unicode.mapping"
 
-    for module in ngx_http_modsecurity_module.so ngx_http_geoip2_module.so \
+    # /etc/nginx/modsec/
+    install -m 0644 \
+        "$ROOT/deploy/modsec/modsecurity.conf" \
+        "$modsec_dir/modsecurity.conf"
+
+    install -m 0644 \
+        "$ROOT/deploy/modsec/main.conf" \
+        "$modsec_dir/main.conf"
+
+    install -m 0644 \
+        "$ROOT/deploy/modsec/override.conf.example" \
+        "$modsec_dir/override.conf.example"
+
+    # Ship an active CRS setup file because main.conf includes crs-setup.conf.
+    install -m 0644 \
+        "$SRC/crs-src/crs-setup.conf.example" \
+        "$modsec_dir/crs-setup.conf"
+
+    # CRS rules.
+    cp -a \
+        "$SRC/crs-src/rules/." \
+        "$modsec_dir/rules/"
+
+    # NGINX dynamic modules.
+    for module in \
+        ngx_http_modsecurity_module.so \
+        ngx_http_geoip2_module.so \
         ngx_http_headers_more_filter_module.so
     do
-        [[ -f "$NGINX_SRC/objs/$module" ]] || die "missing dynamic module: $module"
-        cp -a "$NGINX_SRC/objs/$module" "$STAGE/usr/lib/nginx/modules/"
+        [[ -f "$NGINX_SRC/objs/$module" ]] ||
+            die "missing dynamic module: $module"
+
+        install -m 0755 \
+            "$NGINX_SRC/objs/$module" \
+            "$STAGE/usr/lib/nginx/modules/$module"
     done
 }
 
