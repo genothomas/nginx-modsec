@@ -135,10 +135,20 @@ for module in "${MODULES[@]}"; do
         "/usr/lib/nginx/modules/$module"
 done
 
+# Standard nginx packaging convention: configs reference
+# /etc/nginx/modules; symlink to the real module dir.
+ln -sfn /usr/lib/nginx/modules /etc/nginx/modules
+
 printf '==> Updating libModSecurity\n'
 
 install -d -o root -g root -m 0755 /usr/local/modsecurity/lib
-cp -a "$TMPDIR/usr/local/modsecurity/lib/." /usr/local/modsecurity/lib/
+modsecurity_so="$(find "$TMPDIR/usr/local/modsecurity/lib" -maxdepth 1 \
+    -name 'libmodsecurity.so.*.*.*' -print -quit)"
+[[ -n "$modsecurity_so" ]] ||
+    die "versioned libmodsecurity.so missing from archive"
+install -m 0755 "$modsecurity_so" "/usr/local/modsecurity/lib/$(basename "$modsecurity_so")"
+ln -sfn "$(basename "$modsecurity_so")" /usr/local/modsecurity/lib/libmodsecurity.so.3
+ln -sfn libmodsecurity.so.3 /usr/local/modsecurity/lib/libmodsecurity.so
 
 if [[ -f "$TMPDIR/usr/local/modsecurity/unicode.mapping" ]]; then
     install -m 0644 "$TMPDIR/usr/local/modsecurity/unicode.mapping" \
