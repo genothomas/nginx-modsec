@@ -61,8 +61,13 @@ printf '==> Verifying SHA256\n'
 [[ -f "$ARCHIVE_DIR/SHA256SUMS" ]] ||
     die "SHA256SUMS not found at $ARCHIVE_DIR/SHA256SUMS (required alongside the archive)"
 
-(cd "$ARCHIVE_DIR" && grep -F "  $ARCHIVE_NAME" SHA256SUMS | sha256sum -c -) ||
-    die "SHA256 verification failed for $ARCHIVE_NAME"
+expected="$(grep -F "$ARCHIVE_NAME" "$ARCHIVE_DIR/SHA256SUMS" | awk '{print $1}')"
+[[ -n "$expected" ]] ||
+    die "No checksum entry for $ARCHIVE_NAME in $ARCHIVE_DIR/SHA256SUMS"
+
+actual="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+[[ "$expected" == "$actual" ]] ||
+    die "SHA256 verification failed for $ARCHIVE_NAME (expected $expected, got $actual)"
 
 printf '==> Extracting %s\n' "$ARCHIVE_NAME"
 
