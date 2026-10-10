@@ -102,6 +102,10 @@ done
 install -d -o nginx -g nginx -m 0750 /var/cache/nginx
 install -d -o nginx -g nginx -m 0750 /var/log/nginx/modsec
 
+# Standard nginx packaging convention: configs reference
+# /etc/nginx/modules; symlink to the real module dir.
+ln -sfn /usr/lib/nginx/modules /etc/nginx/modules
+
 printf '==> Installing NGINX runtime\n'
 
 install -m 0755 "$TMPDIR/usr/sbin/nginx" /usr/sbin/nginx
