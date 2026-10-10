@@ -162,21 +162,35 @@ fi
 
 printf '==> Updating ModSecurity + OWASP CRS configuration\n'
 
-# Preserve user override.conf across upgrade.
-user_override=""
-if [[ -f /etc/nginx/modsec/override.conf ]]; then
-    user_override="$(mktemp)"
-    cp -a /etc/nginx/modsec/override.conf "$user_override"
-fi
-
+# User-tunable configs: install only if missing. Existing user edits
+# (Include order in main.conf, SecRuleEngine in modsecurity.conf,
+# CRS tuning in crs-setup.conf) are preserved across upgrades.
 if [[ -d "$TMPDIR/etc/nginx/modsec" ]]; then
     install -d -o root -g root -m 0755 /etc/nginx/modsec
-    cp -a "$TMPDIR/etc/nginx/modsec/." /etc/nginx/modsec/
-fi
 
-if [[ -n "$user_override" ]]; then
-    install -m 0644 "$user_override" /etc/nginx/modsec/override.conf
-    rm -f "$user_override"
+    for f in modsecurity.conf main.conf crs-setup.conf; do
+        if [[ ! -f /etc/nginx/modsec/$f && -f "$TMPDIR/etc/nginx/modsec/$f" ]]; then
+            install -m 0644 "$TMPDIR/etc/nginx/modsec/$f" \
+                "/etc/nginx/modsec/$f"
+        fi
+    done
+
+    # Ship-managed: .example files are reference docs.
+    for f in override.conf.example crs-setup.conf.example; do
+        if [[ -f "$TMPDIR/etc/nginx/modsec/$f" ]]; then
+            install -m 0644 "$TMPDIR/etc/nginx/modsec/$f" \
+                "/etc/nginx/modsec/$f"
+        fi
+    done
+
+    # CRS rules: always overwrite. User tuning goes in override.conf, not
+    # in rule files. Normalize perms to match stage_files.
+    if [[ -d "$TMPDIR/etc/nginx/modsec/rules" ]]; then
+        install -d -o root -g root -m 0755 /etc/nginx/modsec/rules
+        cp -a "$TMPDIR/etc/nginx/modsec/rules/." /etc/nginx/modsec/rules/
+        find /etc/nginx/modsec/rules -type d -exec chmod 0755 {} +
+        find /etc/nginx/modsec/rules -type f -exec chmod 0644 {} +
+    fi
 fi
 
 printf '==> Updating NGINX support files\n'
