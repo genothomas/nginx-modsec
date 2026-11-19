@@ -70,8 +70,9 @@ the rules before switching to blocking.
 sudo ./deploy/upgrade.sh /path/to/nginx-modsec-*.tar.gz
 ```
 
-The upgrader verifies the checksum, backs up the current runtime, checks the
-new configuration, and validates the new runtime and gracefully reloads NGINX.
+The upgrader verifies the checksum, installs the new runtime (binary, dynamic
+modules and libModSecurity) as one set, checks the new configuration, and
+gracefully reloads NGINX.
 
 ## Updating versions
 

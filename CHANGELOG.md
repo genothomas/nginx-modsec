@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+**Deploy:**
+- `upgrade.sh` installs modules and libModSecurity before the config test;
+  NGINX version bumps no longer abort the upgrade
+- `upgrade.sh` no longer keeps a copy of the previous runtime
+
 ## 0.4.0
 
 **Build pipeline:**

@@ -53,8 +53,7 @@ esac
     die "Archive architecture does not match host: expected ${EXPECTED_ARCH}"
 
 TMPDIR="$(mktemp -d)"
-BACKUP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR" "$BACKUP_DIR"' EXIT
+trap 'rm -rf "$TMPDIR"' EXIT
 
 printf '==> Verifying SHA256\n'
 
@@ -98,39 +97,6 @@ grep -Fq 'Library runpath: [/usr/local/modsecurity/lib]' <<< "$modsec_dyn" ||
 grep -Fq 'Shared library: [libmodsecurity.so.3]' <<< "$modsec_dyn" ||
     die "Missing libmodsecurity.so.3 dependency"
 
-printf '==> Backing up current binary, modules and libModSecurity\n'
-
-[[ ! -x /usr/sbin/nginx ]] || cp -a /usr/sbin/nginx "$BACKUP_DIR/nginx"
-
-for module in "${MODULES[@]}"; do
-    [[ -f "/usr/lib/nginx/modules/$module" ]] || continue
-    cp -a "/usr/lib/nginx/modules/$module" "$BACKUP_DIR/"
-done
-
-for lib in /usr/local/modsecurity/lib/libmodsecurity.so*; do
-    [[ -f "$lib" ]] || continue
-    cp -a "$lib" "$BACKUP_DIR/"
-done
-
-# Back up user modsec config; ship-provided config is regenerated.
-if [[ -d /etc/nginx/modsec ]]; then
-    cp -a /etc/nginx/modsec "$BACKUP_DIR/modsec"
-fi
-
-printf '==> Testing new NGINX binary against current configuration\n'
-
-install -m 0755 "$TMPDIR/usr/sbin/nginx" /usr/sbin/nginx.new
-
-# Dry-run: validate current config with new binary before swap.
-if ! /usr/sbin/nginx.new -t; then
-    rm -f /usr/sbin/nginx.new
-    die "New NGINX binary failed configuration test; current installation left untouched"
-fi
-
-printf '==> Installing new NGINX binary\n'
-
-mv -f /usr/sbin/nginx.new /usr/sbin/nginx
-
 printf '==> Updating dynamic modules\n'
 
 install -d -o root -g root -m 0755 /usr/lib/nginx/modules
@@ -159,6 +125,20 @@ if [[ -f "$TMPDIR/usr/local/modsecurity/unicode.mapping" ]]; then
     install -m 0644 "$TMPDIR/usr/local/modsecurity/unicode.mapping" \
         /usr/local/modsecurity/unicode.mapping
 fi
+
+printf '==> Testing new runtime against current configuration\n'
+
+install -m 0755 "$TMPDIR/usr/sbin/nginx" /usr/sbin/nginx.new
+
+# Dry-run: validate current config with new binary before swap.
+if ! /usr/sbin/nginx.new -t; then
+    rm -f /usr/sbin/nginx.new
+    die "New runtime failed the configuration test"
+fi
+
+printf '==> Installing new NGINX binary\n'
+
+mv -f /usr/sbin/nginx.new /usr/sbin/nginx
 
 printf '==> Updating ModSecurity + OWASP CRS configuration\n'
 
